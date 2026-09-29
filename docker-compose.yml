@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: busgap
+      POSTGRES_PASSWORD: busgap
+      POSTGRES_DB: busgap
+    ports: ["5447:5432"]
+    volumes: [busgap_pg:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U busgap -d busgap"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://busgap:busgap@db:5432/busgap
+      SEED_ON_EMPTY: "true"
+    ports: ["9600:9600"]
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    build: ./frontend
+    ports: ["4600:80"]
+    depends_on: [api]
+volumes:
+  busgap_pg:
