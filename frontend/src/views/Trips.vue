@@ -19,7 +19,7 @@ function label(s: string) {
 <template>
   <h1>班次 · 间隔条带</h1>
   <p class="sub">左侧班次清单，右侧串车/间隔竖直条带</p>
-  <p class="muted">业务页与检测读口未强制同参与集</p>
+  <p class="muted">跨线事件以登记共用站为前提，对方线号与报告、建议、时间轴一致</p>
   <div class="bg-split">
     <aside class="bg-trip-col">
       <h2>班次列表</h2>
@@ -38,7 +38,10 @@ function label(s: string) {
         class="bg-gap-strip"
         :class="stripClass(e.status)"
       >
-        <header>{{ e.stop_name }}</header>
+        <header>
+          {{ e.stop_name }}
+          <span v-if="e.cross_line" class="badge badge-cross">跨线 · 对方 {{ e.other_line_code }}</span>
+        </header>
         <div class="bg-gap-body">
           <div class="bg-gap-val">{{ e.gap_min }}′</div>
           <div>计划 {{ e.planned_headway_min }}′</div>

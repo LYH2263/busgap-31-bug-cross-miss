@@ -35,8 +35,8 @@ async function removeStop(line: any, stop_name: string) {
 </script>
 <template>
   <h1>线路</h1>
-  <p class="sub">运营线路与串车 / 大间隔判定阈值 · 未登记共用站时其它线到站也会并入跨线池</p>
-  <p class="muted">业务页与检测读口未强制同参与集</p>
+  <p class="sub">运营线路与串车 / 大间隔判定阈值 · 只有登记为共用站的站点才并入对方线路做跨线判定</p>
+  <p class="muted">检测每次按刚保存的共用名单重算；非共用站只跑本线</p>
   <div class="card">
     <table>
       <thead>
