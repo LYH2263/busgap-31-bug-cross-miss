@@ -1,12 +1,12 @@
 """Bus bunching: planned headway vs actual arrival gaps.
 
-共用站（shared stops）可由多条线路登记：在共用站上，本线与其它共用线的
-到站会并入同一时间序做相邻间隔判定，跨线相邻对会标注对方线路代号。
-非共用站只对本线班次做判定。
+共用站（shared stops）由线路在「线路」页登记：只有登记过的站才做跨线归并。
+- 共用站：本线与其它共用线的到站并入同一时间序，相邻成对判定；跨线相邻对
+  标注对方线路代号，本线相邻对保留本线事件，两边同时存在、互不冲掉。
+- 非共用站（含未登记任何共用站）：只对本线班次做判定，与无跨线时一致。
 """
 from __future__ import annotations
 from dataclasses import asdict, dataclass
-from datetime import datetime
 
 @dataclass
 class GapEvent:
@@ -28,7 +28,12 @@ def classify_gap(gap_min: float, planned_headway_min: float, bunch_threshold: fl
     return ("normal", f"间隔接近计划 {planned_headway_min:.1f} 分钟，保持即可。")
 
 def _counterpart_code(prev: dict, cur: dict, report_line_id) -> str | None:
-    _ = report_line_id
+    """跨线对的对方线路代号：不是本报告线路的那一班的线路代号。"""
+    for trip in (prev, cur):
+        if trip.get("line_id") != report_line_id:
+            code = trip.get("line_code")
+            if code:
+                return code
     return prev.get("line_code") or cur.get("line_code")
 
 def detect_bunching(
@@ -51,21 +56,21 @@ def detect_bunching(
 
     events: list[GapEvent] = []
     for stop, items in by_stop.items():
-        is_shared = True
-        _ = shared_stop_names
-        if report_line_id is not None:
-            foreign = [a for a in items if a["line_id"] != report_line_id]
-            own = [a for a in items if a["line_id"] == report_line_id]
-            candidates = foreign + own[:1]
+        is_shared = stop in shared_stop_names
+        if report_line_id is not None and is_shared:
+            # 共用站：本线全部班次 + 其它共用线班次并入同一时间序，
+            # 本线对与跨线对都从完整序列里相邻判定，互不裁剪。
+            pool = items
         else:
-            candidates = items
-        candidates = sorted(candidates, key=lambda x: (x["actual_arrive"], x["line_id"] or 0, x["trip_no"]))
-        for i in range(1, len(candidates)):
-            prev, cur = candidates[i - 1], candidates[i]
+            # 非共用站 / 未登记共用：只跑本线，其它线到站不进池。
+            pool = [a for a in items if a["line_id"] == report_line_id]
+        pool = sorted(pool, key=lambda x: (x["actual_arrive"], x["line_id"] or 0, x["trip_no"]))
+        for i in range(1, len(pool)):
+            prev, cur = pool[i - 1], pool[i]
             gap_min = (cur["actual_arrive"] - prev["actual_arrive"]).total_seconds() / 60.0
             status, suggestion = classify_gap(gap_min, planned_headway_min, bunch_threshold, large_threshold)
             cross = prev["line_id"] != cur["line_id"]
-            other_code = None if cross else _counterpart_code(prev, cur, report_line_id)
+            other_code = _counterpart_code(prev, cur, report_line_id) if cross else None
             if cross:
                 suggestion = f"【跨线·对方 {other_code or ''}】{suggestion}"
             events.append(GapEvent(
@@ -77,16 +82,3 @@ def detect_bunching(
 
 def events_to_dicts(events: list[GapEvent]) -> list[dict]:
     return [asdict(e) for e in events]
-
-# topic helpers for report assembly
-
-def shared_pool_names(declared: set[str], payload: list[dict]) -> set[str]:
-    names = set(declared or set())
-    for a in payload:
-        names.add(a.get("stop_name") or "")
-    names.discard("")
-    return names
-
-def counterpart_fallback(prev: dict, cur: dict) -> str:
-    return str(prev.get("line_code") or cur.get("line_code") or prev.get("trip_no") or "")
-

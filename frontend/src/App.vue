@@ -32,9 +32,9 @@ onMounted(async () => {
             v-for="m in marks"
             :key="m.trip_no"
             class="bg-bus-dot"
-            :class="{ 'bg-bus-tight': m.pct < 15 }"
+            :class="{ 'bg-bus-tight': m.pct < 15, 'bg-bus-cross': m.cross_line }"
             :style="{ left: m.pct + '%' }"
-            :title="`${m.trip_no} ${m.actual_arrive}`"
+            :title="`${m.trip_no} ${m.line_code || ''} ${m.actual_arrive}${m.cross_line ? ' · 跨线' : ''}`"
           >
             <span class="bg-bus-label">{{ m.trip_no }}</span>
           </div>
